@@ -1,9 +1,10 @@
-# pylint: disable=C3001,R0914,R0913,R0917,C0115,C0413,C0116,C0301,C0103
+# pylint: disable=C3001,R0914,R0913,R0917,C0115,C0413,C0116,C0301,C0103,E0401
 """Pytorch template"""
 import os
 import time
 import datetime
 
+import cv2
 import matplotlib.pyplot as plt
 import torch
 from torch import nn, optim
@@ -18,9 +19,19 @@ BATCH_SIZE = 64
 EPOCHS = 10
 LEARNING_RATE = 1e-3
 DROPOUT = 0.1
-
-# CIFAR-10 has 10 classes
-NUM_CLASSES = 10
+CIFAR10_CLASSES = [
+    "airplane",
+    "automobile",
+    "bird",
+    "cat",
+    "deer",
+    "dog",
+    "frog",
+    "horse",
+    "ship",
+    "truck",
+]
+NUM_CLASSES = len(CIFAR10_CLASSES)
 
 
 def load_cifar_train_val(path="Datasets/cifar10_images", batch_size=64, shuffle=False):
@@ -55,11 +66,17 @@ class CustomModel(nn.Module):
 
 def custom_loss_function(logits, targets):
     """
-    Wrapper function for calculating the loss.
-    Instantiates and uses CrossEntropyLoss internally.
+    Focal Loss implementation for multi-class classification.
+    Helps with class imbalance by down-weighting easy examples.
     """
-    criterion = nn.CrossEntropyLoss()
-    loss_ = criterion(logits, targets)
+    gamma = 2.0
+    alpha = 1.0
+
+    # logits: (B, num_classes), targets: (B,)
+    ce_loss = nn.CrossEntropyLoss(reduction="none")(logits, targets)  # (B,)
+    pt = torch.exp(-ce_loss)  # (B,)
+    focal_loss = alpha * (1 - pt) ** gamma * ce_loss
+    loss_ = focal_loss.mean()
     return loss_
 
 
@@ -116,6 +133,47 @@ def eval_epoch(model_, loader):
     avg_loss = total_loss / total_samples
     accuracy = correct_predictions / total_samples
     return avg_loss, accuracy
+
+
+@torch.no_grad()
+def infer(model_, image):
+    """
+    Predicts the class for a single image array.
+
+    Args:
+        model_: The trained model
+        image: numpy array image (H, W, C) in BGR format (as loaded by cv2)
+
+    Returns:
+        tuple: (predicted_class_index, predicted_class_name, confidence)
+    """
+    model_.eval()
+
+    # Convert BGR to RGB (cv2 loads as BGR, but transforms expect RGB)
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Convert to PIL-like format and apply same transforms as training
+    transform = transforms.Compose(
+        [
+            transforms.ToPILImage(),
+            transforms.ToTensor(),
+        ]
+    )
+
+    # Apply transforms and add batch dimension
+    image_tensor = transform(image_rgb).unsqueeze(0).to(DEVICE)  # (1, 3, H, W)
+
+    # Get prediction
+    logits = model_(image_tensor)  # (1, num_classes)
+    probabilities = torch.softmax(logits, dim=1)  # (1, num_classes)
+
+    # Get predicted class and confidence
+    confidence, predicted_idx = torch.max(probabilities, 1)
+    predicted_idx = predicted_idx.item()
+    confidence = confidence.item()
+    predicted_class_name = CIFAR10_CLASSES[predicted_idx]
+
+    return predicted_idx, predicted_class_name, confidence
 
 
 if __name__ == "__main__":
@@ -208,10 +266,7 @@ if __name__ == "__main__":
 
     # Add title
     script_name = os.path.basename(__file__)
-    fig.suptitle(
-        f"{script_name}\nCIFAR-10 Dataset\nEpochs: {EPOCHS}",
-        fontsize=16,
-    )
+    fig.suptitle(f"{script_name}\nCIFAR-10 Dataset\nEpochs: {EPOCHS}", fontsize=16)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(TS_METRICS_PATH)
@@ -223,4 +278,14 @@ if __name__ == "__main__":
     minutes, seconds = divmod(total_seconds, 60)
     print(f"\nTotal runtime: {minutes}m {seconds}s")
 
-    print("\nDataset ready for vision-based architecture!")
+    # Demo inference
+    print("\n--- Demo Inference ---")
+    demo_image_path = "Datasets/cifar10_images/test/horse/test_00013.png"
+
+    # Read the image using cv2
+    demo_image = cv2.imread(demo_image_path)
+    pred_idx, pred_class, confidence = infer(model, demo_image)
+    print(f"Image: {demo_image_path}")
+    print(
+        f"Predicted: {pred_class} (class {pred_idx}) with confidence {confidence:.4f}"
+    )
