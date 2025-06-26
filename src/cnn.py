@@ -65,11 +65,12 @@ class CustomModel(nn.Module):
             stride=1,
             padding=1,
         )
+        self.relu = nn.ReLU()
         self.full_connected = nn.Linear(32 * 32 * 32, num_classes)
 
     def forward(self, x):
-        x = nn.ReLU(self.conv_1(x))
-        x = nn.ReLU(self.conv_2(x))
+        x = self.relu(self.conv_1(x))
+        x = self.relu(self.conv_2(x))
         x = x.view(x.size(0), -1)  # flatten
         x = self.full_connected(x)
         return x
