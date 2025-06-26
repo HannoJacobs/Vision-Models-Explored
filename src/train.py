@@ -50,17 +50,29 @@ class CustomModel(nn.Module):
     def __init__(self, num_classes: int = NUM_CLASSES, dropout: float = DROPOUT):
         super().__init__()
 
+        input_num_pixels = 3 * 32 * 32
         self.flatten = nn.Flatten()
-        self.fc = nn.Linear(3 * 32 * 32, num_classes)  # CIFAR-10 images are 32x32x3
+
+        self.input_ = nn.Linear(input_num_pixels, input_num_pixels // 2)
+        self.hidden_1 = nn.Linear(input_num_pixels // 2, input_num_pixels // 4)
+        self.output = nn.Linear(input_num_pixels // 4, num_classes)
+
+        self.dropout_1 = nn.Dropout(dropout)
+        self.dropout_2 = nn.Dropout(dropout)
 
     def forward(self, x):
-        """
-        x shape: (B, 3, 32, 32) - CIFAR-10 images
-        output shape: (B, num_classes) - raw logits
-        """
         x = self.flatten(x)
-        logits = self.fc(x)
-        return logits
+
+        x = self.input_(x)
+        x = torch.relu(x)
+        x = self.dropout_1(x)
+
+        x = self.hidden_1(x)
+        x = torch.relu(x)
+        x = self.dropout_2(x)
+
+        x = self.output(x)
+        return x
 
 
 def custom_loss_function(logits, targets):
