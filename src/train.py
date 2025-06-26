@@ -1,4 +1,4 @@
-# pylint: disable=C3001,R0914,R0913,R0917,C0115,C0413,C0116,C0301,C0103,E0401
+# pylint: disable=C3001,R0914,R0913,R0917,C0115,C0413,C0116,C0301,C0103,E0401,E1101
 """Pytorch template"""
 import os
 import time
