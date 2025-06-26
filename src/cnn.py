@@ -18,7 +18,6 @@ print(f"🖥️  device = {DEVICE}")
 BATCH_SIZE = 64
 EPOCHS = 10
 LEARNING_RATE = 1e-3
-DROPOUT = 0.1
 CIFAR10_CLASSES = [
     "airplane",
     "automobile",
@@ -47,7 +46,7 @@ def load_cifar_train_val(path="Datasets/cifar10_images", batch_size=64, shuffle=
 class CustomModel(nn.Module):
     """Model"""
 
-    def __init__(self, num_classes: int = NUM_CLASSES, dropout: float = DROPOUT):
+    def __init__(self, num_classes: int = NUM_CLASSES):
         super().__init__()
 
         kernel_size = 3
@@ -188,7 +187,7 @@ if __name__ == "__main__":
     print(f"Loaded {train_size:,} training samples and {val_size:,} validation samples")
 
     # Model & Optimizer
-    model = CustomModel(num_classes=NUM_CLASSES, dropout=DROPOUT).to(DEVICE)
+    model = CustomModel().to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     # Training loop
@@ -232,7 +231,6 @@ if __name__ == "__main__":
         {
             "model_state": model.state_dict(),
             "num_classes": NUM_CLASSES,
-            "dropout": DROPOUT,
         },
         TS_MODEL_PATH,
     )
@@ -240,7 +238,6 @@ if __name__ == "__main__":
         {
             "model_state": model.state_dict(),
             "num_classes": NUM_CLASSES,
-            "dropout": DROPOUT,
         },
         LATEST_MODEL_PATH,
     )

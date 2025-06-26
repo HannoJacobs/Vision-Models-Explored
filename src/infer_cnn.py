@@ -7,11 +7,11 @@ import cv2
 import torch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
-from src.mlp import CustomModel, infer, NUM_CLASSES, DROPOUT
+from src.cnn import CustomModel, infer, NUM_CLASSES
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"🖥️  device = {DEVICE}")
-MODEL_PATH = "models/mlp_latest.pth"
+MODEL_PATH = "models/cnn_latest.pth"
 
 
 def load_model(ckpt_path: str):
@@ -21,8 +21,7 @@ def load_model(ckpt_path: str):
         sys.exit(1)
     ckpt = torch.load(ckpt_path, map_location=DEVICE)
     num_classes = ckpt.get("num_classes", NUM_CLASSES)
-    dropout = ckpt.get("dropout", DROPOUT)
-    model_ = CustomModel(num_classes=num_classes, dropout=dropout).to(DEVICE)
+    model_ = CustomModel(num_classes=num_classes).to(DEVICE)
     model_.load_state_dict(ckpt["model_state"])
     model_.eval()
     print(f"Model loaded from {ckpt_path} and set to evaluation mode.")
