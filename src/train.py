@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
 
-DATA_PATH = "Datasets/synth_i5_r0-9_n-1000.csv"
+# DATA_PATH = "Datasets/synth_i5_r0-9_n-1000.csv"  # Commented out for CIFAR
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"🖥️  device = {DEVICE}")
 
@@ -205,37 +205,15 @@ def infer(model_, feature_vector: list, seq_len: int):
 
 if __name__ == "__main__":
     start_time = time.time()
-    df = pd.read_csv(DATA_PATH)
-    print(f"Loaded {len(df):,} samples from {DATA_PATH}")
 
-    # Define input and target column names based on your CSV
-    INPUT_COL_NAMES = [f"input_{i+1}" for i in range(SEQ_LEN)]
-    TARGET_COL_NAME = "target"
+    # Load CIFAR dataset instead of CSV
+    print("Loading CIFAR-10 dataset...")
+    train_dl, val_dl = load_cifar_train_val(batch_size=BATCH_SIZE, shuffle=True)
 
-    # 1. Split data
-    train_df, val_df = train_test_split(
-        df,
-        test_size=0.1,
-        random_state=42,
-        shuffle=True,
-        stratify=None,
-    )
-    train_df = train_df.reset_index(drop=True)
-    val_df = val_df.reset_index(drop=True)
-
-    # 2. Dataset / DataLoader
-    train_ds = ModelDataset(
-        df_=train_df, input_cols=INPUT_COL_NAMES, target_col=TARGET_COL_NAME
-    )
-    val_ds = ModelDataset(
-        df_=val_df, input_cols=INPUT_COL_NAMES, target_col=TARGET_COL_NAME
-    )
-    train_dl = DataLoader(
-        dataset=train_ds, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn
-    )
-    val_dl = DataLoader(
-        dataset=val_ds, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn
-    )
+    # Get dataset sizes for logging
+    train_size = len(train_dl.dataset)
+    val_size = len(val_dl.dataset)
+    print(f"Loaded {train_size:,} training samples and {val_size:,} validation samples")
 
     # 3. Model / Optim
     model = CustomModel(
@@ -333,7 +311,7 @@ if __name__ == "__main__":
     # Add a title to the figure
     script_name = os.path.basename(__file__)
     fig.suptitle(
-        f"{script_name}\n{DATA_PATH}\nEpochs: {EPOCHS}",
+        f"{script_name}\nCIFAR-10 Dataset\nEpochs: {EPOCHS}",  # Updated title
         fontsize=16,
     )
 
@@ -347,21 +325,22 @@ if __name__ == "__main__":
     minutes, seconds = divmod(total_seconds, 60)
     print(f"\nTotal runtime: {minutes}m {seconds}s")
 
-    # 7. Demo
+    # 7. Demo - Skip demo for now since model architecture doesn't match CIFAR yet
     print("\n--- Demo Inference ---")
-    if SEQ_LEN == 5:
-        demo_samples = [
-            [0, 2, 6, 3, 3],  # Expected target: (0+2+6+3+3) = 14
-            [7, 8, 4, 2, 9],  # Expected target: (7+8+4+2+9) = 30
-            [1, 7, 5, 4, 1],  # Expected target: (1+7+5+4+1) = 18
-        ]
-        for sample_features in demo_samples:
-            try:
-                prediction = infer(model, sample_features, SEQ_LEN)
-                print(f"Input: {sample_features} -> Predicted class: {prediction}")
-            except ValueError as e:
-                print(f"Error during demo prediction for {sample_features}: {e}")
-    else:
-        print(
-            f"Demo samples are for seq_len=5. Current seq_len is {SEQ_LEN}. Skipping demo."
-        )
+    print("Demo skipped - model architecture needs to be adapted for CIFAR-10 images")
+    # if SEQ_LEN == 5:
+    #     demo_samples = [
+    #         [0, 2, 6, 3, 3],  # Expected target: (0+2+6+3+3) = 14
+    #         [7, 8, 4, 2, 9],  # Expected target: (7+8+4+2+9) = 30
+    #         [1, 7, 5, 4, 1],  # Expected target: (1+7+5+4+1) = 18
+    #     ]
+    #     for sample_features in demo_samples:
+    #         try:
+    #             prediction = infer(model, sample_features, SEQ_LEN)
+    #             print(f"Input: {sample_features} -> Predicted class: {prediction}")
+    #         except ValueError as e:
+    #             print(f"Error during demo prediction for {sample_features}: {e}")
+    # else:
+    #     print(
+    #         f"Demo samples are for seq_len=5. Current seq_len is {SEQ_LEN}. Skipping demo."
+    #     )
