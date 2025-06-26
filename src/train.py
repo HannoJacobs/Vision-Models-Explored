@@ -1,6 +1,7 @@
 # pylint: disable=C3001,R0914,R0913,R0917,C0115,C0413,C0116,C0301,C0103
 """Pytorch template"""
 import os
+import sys
 import time
 import datetime
 
@@ -10,13 +11,15 @@ import torch
 from torch import nn, optim
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
+from torchvision.datasets import ImageFolder
+from torchvision import transforms
 
 DATA_PATH = "Datasets/synth_i5_r0-9_n-1000.csv"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"🖥️  device = {DEVICE}")
 
 BATCH_SIZE = 64
-EPOCHS = 100
+EPOCHS = 10
 LEARNING_RATE = 1e-3
 DROPOUT = 0.1
 
@@ -26,6 +29,16 @@ HIDDEN_SIZE = 64
 NUM_LAYERS = 2
 EMBEDDING_DIM = VOCAB_SIZE
 NUM_CLASSES = SEQ_LEN * VOCAB_SIZE
+
+
+def load_cifar_train_val(path="Datasets/cifar10_images", batch_size=64, shuffle=False):
+    """load_cifar"""
+    transform = transforms.ToTensor()
+    train_dataset = ImageFolder(root=f"{path}/train", transform=transform)
+    val_dataset = ImageFolder(root=f"{path}/test", transform=transform)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=shuffle)
+    return train_loader, val_loader
 
 
 class ModelDataset(Dataset):
