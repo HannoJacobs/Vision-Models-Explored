@@ -2,6 +2,7 @@
 """Computer vision model"""
 import os
 import time
+import math
 import datetime
 
 import cv2
@@ -19,6 +20,13 @@ BATCH_SIZE = 64
 EPOCHS = 10
 LEARNING_RATE = 1e-3
 DROPOUT = 0.1
+
+IMG_SIZE = 32
+PATCH_SIZE = 4
+IN_CHANS = 3
+EMBED_DIM = 128
+NHEAD = 4
+
 CIFAR10_CLASSES = [
     "airplane",
     "automobile",
@@ -44,34 +52,80 @@ def load_cifar_train_val(path="Datasets/cifar10_images", batch_size=64, shuffle=
     return train_loader, val_loader
 
 
+class ViTPositionalEncoding(nn.Module):
+    """
+    Basic learnable positional encoding for ViT.
+    """
+
+    def __init__(self, num_patches, dim):
+        super().__init__()
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, dim))
+
+    def forward(self, x):
+        # x: (B, num_patches, dim)
+        return x + self.pos_embed
+
+
 class CustomModel(nn.Module):
     """Model"""
 
-    def __init__(self, num_classes: int = NUM_CLASSES, dropout: float = DROPOUT):
+    def __init__(
+        self,
+        img_size=IMG_SIZE,
+        patch_size=PATCH_SIZE,
+        in_chans=IN_CHANS,
+        num_classes=NUM_CLASSES,
+        embed_dim=EMBED_DIM,
+        nhead=NHEAD,
+        dropout=DROPOUT,
+    ):
         super().__init__()
+        self.num_patches = (img_size // patch_size) ** 2
+        self.patch_dim = in_chans * patch_size * patch_size
 
-        input_num_pixels = 3 * 32 * 32
-        self.flatten = nn.Flatten()
+        # Patch embedding: flatten patches and project to embed_dim
+        self.patch_embed = nn.Linear(self.patch_dim, embed_dim)
 
-        self.input_ = nn.Linear(input_num_pixels, input_num_pixels // 2)
-        self.hidden_1 = nn.Linear(input_num_pixels // 2, input_num_pixels // 4)
-        self.output = nn.Linear(input_num_pixels // 4, num_classes)
+        # Positional encoding
+        self.pos_embed = ViTPositionalEncoding(self.num_patches, embed_dim)
 
-        self.dropout_1 = nn.Dropout(dropout)
-        self.dropout_2 = nn.Dropout(dropout)
+        # Single transformer encoder layer
+        self.encoder = nn.TransformerEncoderLayer(
+            d_model=embed_dim,
+            nhead=nhead,
+            dim_feedforward=embed_dim * 2,
+            dropout=dropout,
+            activation="gelu",
+            batch_first=True,
+        )
+
+        # Classification head
+        self.norm = nn.LayerNorm(embed_dim)
+        self.head = nn.Linear(embed_dim, num_classes)
 
     def forward(self, x):
-        x = self.flatten(x)
+        # x: (B, 3, 32, 32)
+        B, C, H, W = x.shape
+        patch_size = int(math.sqrt(self.patch_dim // C))
+        # Patchify
+        x = x.unfold(2, patch_size, patch_size).unfold(3, patch_size, patch_size)
+        x = x.contiguous().view(B, C, -1, patch_size, patch_size)
+        x = x.permute(0, 2, 1, 3, 4)  # (B, num_patches, C, patch, patch)
+        x = x.reshape(B, self.num_patches, -1)  # (B, num_patches, patch_dim)
+        x = self.patch_embed(x)  # (B, num_patches, embed_dim)
 
-        x = self.input_(x)
-        x = torch.relu(x)
-        x = self.dropout_1(x)
+        # Add positional encoding
+        x = self.pos_embed(x)  # (B, num_patches, embed_dim)
 
-        x = self.hidden_1(x)
-        x = torch.relu(x)
-        x = self.dropout_2(x)
+        # Transformer encoder (single layer)
+        x = self.encoder(x)  # (B, num_patches, embed_dim)
 
-        x = self.output(x)
+        # Global average pooling over patches
+        x = x.mean(dim=1)  # (B, embed_dim)
+
+        # Classification head
+        x = self.norm(x)
+        x = self.head(x)
         return x
 
 
@@ -187,7 +241,7 @@ if __name__ == "__main__":
     print(f"Loaded {train_size:,} training samples and {val_size:,} validation samples")
 
     # Model & Optimizer
-    model = CustomModel(num_classes=NUM_CLASSES, dropout=DROPOUT).to(DEVICE)
+    model = CustomModel().to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     # Training loop

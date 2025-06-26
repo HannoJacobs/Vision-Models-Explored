@@ -1,5 +1,5 @@
 # pylint: disable=C3001,R0914,R0913,R0917,C0115,C0413,C0116,C0301,C0103,E0401,E1101
-"""Script for running inference with a trained model."""
+"""Script for running inference with a trained ViT model."""
 import os
 import sys
 
@@ -7,11 +7,11 @@ import cv2
 import torch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
-from src.mlp import CustomModel, infer, NUM_CLASSES, DROPOUT
+from src.vit import CustomModel, infer, NUM_CLASSES, DROPOUT, EMBED_DIM, NHEAD
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"🖥️  device = {DEVICE}")
-MODEL_PATH = "models/mlp_latest.pth"
+MODEL_PATH = "models/vit_latest.pth"
 
 
 def load_model(ckpt_path: str):
@@ -22,7 +22,14 @@ def load_model(ckpt_path: str):
     ckpt = torch.load(ckpt_path, map_location=DEVICE)
     num_classes = ckpt.get("num_classes", NUM_CLASSES)
     dropout = ckpt.get("dropout", DROPOUT)
-    model_ = CustomModel(num_classes=num_classes, dropout=dropout).to(DEVICE)
+    embed_dim = ckpt.get("embed_dim", EMBED_DIM)
+    nhead = ckpt.get("nhead", NHEAD)
+    model_ = CustomModel(
+        num_classes=num_classes,
+        dropout=dropout,
+        embed_dim=embed_dim,
+        nhead=nhead,
+    ).to(DEVICE)
     model_.load_state_dict(ckpt["model_state"])
     model_.eval()
     print(f"Model loaded from {ckpt_path} and set to evaluation mode.")
