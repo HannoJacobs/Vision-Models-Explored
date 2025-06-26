@@ -50,28 +50,28 @@ class CustomModel(nn.Module):
     def __init__(self, num_classes: int = NUM_CLASSES, dropout: float = DROPOUT):
         super().__init__()
 
-        input_num_pixels = 3 * 32 * 32
-        self.flatten = nn.Flatten()
-
-        self.input_ = nn.Linear(input_num_pixels, input_num_pixels // 2)
-        self.hidden_1 = nn.Linear(input_num_pixels // 2, input_num_pixels // 4)
-        self.output = nn.Linear(input_num_pixels // 4, num_classes)
-
-        self.dropout_1 = nn.Dropout(dropout)
-        self.dropout_2 = nn.Dropout(dropout)
+        kernel_size = 3
+        self.conv_1 = nn.Conv2d(
+            in_channels=3,
+            out_channels=16,
+            kernel_size=kernel_size,
+            stride=1,
+            padding=1,
+        )
+        self.conv_2 = nn.Conv2d(
+            in_channels=16,
+            out_channels=32,
+            kernel_size=kernel_size,
+            stride=1,
+            padding=1,
+        )
+        self.full_connected = nn.Linear(32 * 32 * 32, num_classes)
 
     def forward(self, x):
-        x = self.flatten(x)
-
-        x = self.input_(x)
-        x = torch.relu(x)
-        x = self.dropout_1(x)
-
-        x = self.hidden_1(x)
-        x = torch.relu(x)
-        x = self.dropout_2(x)
-
-        x = self.output(x)
+        x = nn.ReLU(self.conv_1(x))
+        x = nn.ReLU(self.conv_2(x))
+        x = x.view(x.size(0), -1)  # flatten
+        x = self.full_connected(x)
         return x
 
 
