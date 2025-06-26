@@ -181,12 +181,7 @@ def infer(model_, image):
 
 if __name__ == "__main__":
     start_time = time.time()
-
-    # Load CIFAR dataset
-    print("Loading CIFAR-10 dataset...")
     train_dl, val_dl = load_cifar_train_val(batch_size=BATCH_SIZE, shuffle=True)
-
-    # Get dataset sizes for logging
     train_size = len(train_dl.dataset)
     val_size = len(val_dl.dataset)
     print(f"Loaded {train_size:,} training samples and {val_size:,} validation samples")
@@ -284,8 +279,6 @@ if __name__ == "__main__":
     # Demo inference
     print("\n--- Demo Inference ---")
     demo_image_path = "Datasets/cifar10_images/test/horse/test_00013.png"
-
-    # Read the image using cv2
     demo_image = cv2.imread(demo_image_path)
     pred_idx, pred_class, confidence = infer(model, demo_image)
     print(f"Image: {demo_image_path}")
