@@ -1,5 +1,5 @@
 # pylint: disable=C3001,R0914,R0913,R0917,C0115,C0413,C0116,C0301,C0103,E0401,E1101
-"""Pytorch template"""
+"""Computer vision model"""
 import os
 import time
 import datetime
@@ -214,17 +214,19 @@ if __name__ == "__main__":
 
         print(
             f"Epoch {ep:02d}/{EPOCHS} │ "
-            f"train_loss={tr_loss:.4f} train_acc={tr_acc:.3f} │ "
-            f"val_loss={vl_loss:.4f} val_acc={vl_acc:.3f} │ "
+            f"train_loss={tr_loss:.3f} train_acc={tr_acc:.3f} │ "
+            f"val_loss={vl_loss:.3f} val_acc={vl_acc:.3f} │ "
             f"Time: {epoch_minutes}m {epoch_seconds}s"
         )
 
     # Save model
+    script_name = os.path.basename(__file__)
+    script_name_no_ext = os.path.splitext(script_name)[0]
     os.makedirs("models", exist_ok=True)
     os.makedirs("logging", exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-    TS_MODEL_PATH = f"models/model_{ts}.pth"
-    LATEST_MODEL_PATH = "models/model_latest.pth"
+    TS_MODEL_PATH = f"models/{script_name_no_ext}_{ts}.pth"
+    LATEST_MODEL_PATH = f"models/{script_name_no_ext}_latest.pth"
     torch.save(
         {
             "model_state": model.state_dict(),
@@ -243,8 +245,8 @@ if __name__ == "__main__":
     )
 
     # Plot metrics
-    TS_METRICS_PATH = f"logging/metrics_{ts}.png"
-    LATEST_METRICS_PATH = "logging/metrics_latest.png"
+    TS_METRICS_PATH = f"logging/{script_name_no_ext}_metrics_{ts}.png"
+    LATEST_METRICS_PATH = f"logging/{script_name_no_ext}_metrics_latest.png"
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
     epochs_range = range(1, EPOCHS + 1)
     ax1.plot(epochs_range, train_losses, label="Train Loss")
@@ -263,9 +265,7 @@ if __name__ == "__main__":
     ax2.grid(True)
 
     # Add title
-    script_name = os.path.basename(__file__)
-    fig.suptitle(f"{script_name}\nCIFAR-10 Dataset\nEpochs: {EPOCHS}", fontsize=16)
-
+    fig.suptitle(f"{script_name}\nCIFAR-10\nEpochs: {EPOCHS}", fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(TS_METRICS_PATH)
     plt.savefig(LATEST_METRICS_PATH)
@@ -283,5 +283,5 @@ if __name__ == "__main__":
     pred_idx, pred_class, confidence = infer(model, demo_image)
     print(f"Image: {demo_image_path}")
     print(
-        f"Predicted: {pred_class} (class {pred_idx}) with confidence {confidence:.4f}"
+        f"Predicted: {pred_class} (class {pred_idx}) with confidence {confidence:.2f}"
     )
