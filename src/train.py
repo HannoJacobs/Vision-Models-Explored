@@ -44,13 +44,12 @@ def load_cifar_train_val(path="Datasets/cifar10_images", batch_size=64, shuffle=
     return train_loader, val_loader
 
 
-# TODO: Replace with vision-based model architecture
 class CustomModel(nn.Module):
-    """Placeholder model - replace with CNN/Vision architecture"""
+    """Model"""
 
     def __init__(self, num_classes: int = NUM_CLASSES, dropout: float = DROPOUT):
         super().__init__()
-        # Placeholder - replace with actual vision architecture
+
         self.flatten = nn.Flatten()
         self.fc = nn.Linear(3 * 32 * 32, num_classes)  # CIFAR-10 images are 32x32x3
 
@@ -69,15 +68,7 @@ def custom_loss_function(logits, targets):
     Focal Loss implementation for multi-class classification.
     Helps with class imbalance by down-weighting easy examples.
     """
-    gamma = 2.0
-    alpha = 1.0
-
-    # logits: (B, num_classes), targets: (B,)
-    ce_loss = nn.CrossEntropyLoss(reduction="none")(logits, targets)  # (B,)
-    pt = torch.exp(-ce_loss)  # (B,)
-    focal_loss = alpha * (1 - pt) ** gamma * ce_loss
-    loss_ = focal_loss.mean()
-    return loss_
+    return nn.CrossEntropyLoss()(logits, targets)
 
 
 def train_epoch(model_, loader, optimizer_):
