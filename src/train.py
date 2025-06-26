@@ -159,12 +159,12 @@ def infer(model_, image):
     probabilities = torch.softmax(logits, dim=1)  # (1, num_classes)
 
     # Get predicted class and confidence
-    confidence, predicted_idx = torch.max(probabilities, 1)
+    confidence_, predicted_idx = torch.max(probabilities, 1)
     predicted_idx = predicted_idx.item()
-    confidence = confidence.item()
+    confidence_ = confidence_.item()
     predicted_class_name = CIFAR10_CLASSES[predicted_idx]
 
-    return predicted_idx, predicted_class_name, confidence
+    return predicted_idx, predicted_class_name, confidence_
 
 
 if __name__ == "__main__":
