@@ -1,20 +1,16 @@
 # pylint: disable=C3001,R0914,R0913,R0917,C0115,C0413,C0116,C0301,C0103
 """Pytorch template"""
 import os
-import sys
 import time
 import datetime
 
-import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 from torch import nn, optim
-from torch.utils.data import Dataset, DataLoader
-from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
 
-# DATA_PATH = "Datasets/synth_i5_r0-9_n-1000.csv"  # Commented out for CIFAR
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"🖥️  device = {DEVICE}")
 
@@ -23,12 +19,8 @@ EPOCHS = 10
 LEARNING_RATE = 1e-3
 DROPOUT = 0.1
 
-SEQ_LEN = 5
-VOCAB_SIZE = 10
-HIDDEN_SIZE = 64
-NUM_LAYERS = 2
-EMBEDDING_DIM = VOCAB_SIZE
-NUM_CLASSES = SEQ_LEN * VOCAB_SIZE
+# CIFAR-10 has 10 classes
+NUM_CLASSES = 10
 
 
 def load_cifar_train_val(path="Datasets/cifar10_images", batch_size=64, shuffle=False):
@@ -41,78 +33,23 @@ def load_cifar_train_val(path="Datasets/cifar10_images", batch_size=64, shuffle=
     return train_loader, val_loader
 
 
-class ModelDataset(Dataset):
-    """Dataset from a CSV file."""
-
-    def __init__(self, df_: pd.DataFrame, input_cols: list[str], target_col: str):
-        self.features = torch.tensor(df_[input_cols].values, dtype=torch.long)
-        self.labels = torch.tensor(df_[target_col].values, dtype=torch.long)
-
-    def __len__(self):
-        return len(self.labels)
-
-    def __getitem__(self, idx):
-        return self.features[idx], self.labels[idx]
-
-
-def collate_fn(batch):
-    """
-    Collates a batch of features and labels for model.
-    features: (B, num_features)
-    labels: (B)
-    """
-    features, labels = zip(*batch)
-    features_tensor = torch.stack(features)
-    labels_tensor = torch.stack(labels)
-    return features_tensor, labels_tensor
-
-
+# TODO: Replace with vision-based model architecture
 class CustomModel(nn.Module):
-    """An LSTM-based model for sequence classification with embedding."""
+    """Placeholder model - replace with CNN/Vision architecture"""
 
-    def __init__(
-        self,
-        hidden_size: int = HIDDEN_SIZE,
-        num_layers: int = NUM_LAYERS,
-        num_classes: int = NUM_CLASSES,
-        dropout: float = DROPOUT,
-        vocab_size: int = VOCAB_SIZE,
-        embedding_dim: int = EMBEDDING_DIM,
-    ):
+    def __init__(self, num_classes: int = NUM_CLASSES, dropout: float = DROPOUT):
         super().__init__()
-        self.embedding = nn.Embedding(
-            num_embeddings=vocab_size, embedding_dim=embedding_dim
-        )
-        self.lstm = nn.LSTM(
-            input_size=embedding_dim,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            batch_first=True,
-            dropout=dropout if num_layers > 1 else 0.0,
-        )
-        self.fc = nn.Linear(hidden_size, num_classes)
+        # Placeholder - replace with actual vision architecture
+        self.flatten = nn.Flatten()
+        self.fc = nn.Linear(3 * 32 * 32, num_classes)  # CIFAR-10 images are 32x32x3
 
     def forward(self, x):
         """
-        x shape: (B, seq_len). Elements are token indices.
-        The data pipeline typically prepares sequences of length seq_len.
+        x shape: (B, 3, 32, 32) - CIFAR-10 images
         output shape: (B, num_classes) - raw logits
         """
-        # x shape: (batch, seq_len)
-        embedded = self.embedding(x)  # embedded shape: (batch, seq_len, embedding_dim)
-
-        # lstm_out shape: (batch, seq_len, lstm_hidden_size)
-        # hn shape: (num_lstm_layers, batch, lstm_hidden_size)
-        # cn shape: (num_lstm_layers, batch, lstm_hidden_size)
-        lstm_out, (hn, cn) = self.lstm(embedded)  # hn,cn unused # pylint: disable=W0612
-
-        # For sequence classification, we need a fixed-size representation for each input sequence.
-        # The LSTM (lstm_out) produces a hidden state for each time step in the input sequence.
-        # We select the hidden state from the *last time step* for every sequence in the batch.
-        # This 'last_time_step_output' serves as a summary of the entire input sequence
-        # and is used as input to the final classification layer.
-        last_time_step_output = lstm_out[:, -1, :]  # shape: (batch, lstm_hidden_size)
-        logits = self.fc(last_time_step_output)
+        x = self.flatten(x)
+        logits = self.fc(x)
         return logits
 
 
@@ -181,32 +118,10 @@ def eval_epoch(model_, loader):
     return avg_loss, accuracy
 
 
-@torch.no_grad()
-def infer(model_, feature_vector: list, seq_len: int):
-    """
-    Predicts the class for a single feature vector.
-    'seq_len' here refers to the expected sequence length of the feature_vector,
-    which should match the seq_len global constant used during training.
-    """
-    model_.eval()
-    if len(feature_vector) != seq_len:
-        raise ValueError(
-            f"Input feature vector length {len(feature_vector)} does not match model's expected seq_len {seq_len}"
-        )
-
-    # Input features are now indices for the embedding layer
-    features_tensor = (
-        torch.tensor(feature_vector, dtype=torch.long).unsqueeze(0).to(DEVICE)
-    )
-    logits = model_(features_tensor)
-    prediction_ = torch.argmax(logits, dim=1).item()
-    return prediction_
-
-
 if __name__ == "__main__":
     start_time = time.time()
 
-    # Load CIFAR dataset instead of CSV
+    # Load CIFAR dataset
     print("Loading CIFAR-10 dataset...")
     train_dl, val_dl = load_cifar_train_val(batch_size=BATCH_SIZE, shuffle=True)
 
@@ -215,18 +130,11 @@ if __name__ == "__main__":
     val_size = len(val_dl.dataset)
     print(f"Loaded {train_size:,} training samples and {val_size:,} validation samples")
 
-    # 3. Model / Optim
-    model = CustomModel(
-        hidden_size=HIDDEN_SIZE,
-        num_layers=NUM_LAYERS,
-        num_classes=NUM_CLASSES,
-        dropout=DROPOUT,
-        vocab_size=VOCAB_SIZE,
-        embedding_dim=EMBEDDING_DIM,
-    ).to(DEVICE)
+    # Model & Optimizer
+    model = CustomModel(num_classes=NUM_CLASSES, dropout=DROPOUT).to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    # 4. Training loop
+    # Training loop
     train_losses = []
     val_losses = []
     train_accuracies = []
@@ -255,7 +163,7 @@ if __name__ == "__main__":
             f"Time: {epoch_minutes}m {epoch_seconds}s"
         )
 
-    # 5. Save
+    # Save model
     os.makedirs("models", exist_ok=True)
     os.makedirs("logging", exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
@@ -264,35 +172,25 @@ if __name__ == "__main__":
     torch.save(
         {
             "model_state": model.state_dict(),
-            "seq_len": SEQ_LEN,
-            "hidden_size": HIDDEN_SIZE,
-            "num_layers": NUM_LAYERS,
             "num_classes": NUM_CLASSES,
             "dropout": DROPOUT,
-            "vocab_size": VOCAB_SIZE,
-            "embedding_dim": EMBEDDING_DIM,
         },
         TS_MODEL_PATH,
     )
     torch.save(
         {
             "model_state": model.state_dict(),
-            "seq_len": SEQ_LEN,
-            "hidden_size": HIDDEN_SIZE,
-            "num_layers": NUM_LAYERS,
             "num_classes": NUM_CLASSES,
             "dropout": DROPOUT,
-            "vocab_size": VOCAB_SIZE,
-            "embedding_dim": EMBEDDING_DIM,
         },
         LATEST_MODEL_PATH,
     )
 
-    # 6. plot loss & Accuracy
+    # Plot metrics
     TS_METRICS_PATH = f"logging/metrics_{ts}.png"
     LATEST_METRICS_PATH = "logging/metrics_latest.png"
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
-    epochs_range = range(1, EPOCHS + 1)  # Corrected variable name
+    epochs_range = range(1, EPOCHS + 1)
     ax1.plot(epochs_range, train_losses, label="Train Loss")
     ax1.plot(epochs_range, val_losses, label="Val Loss")
     ax1.set_xlabel("Epoch")
@@ -308,39 +206,21 @@ if __name__ == "__main__":
     ax2.legend()
     ax2.grid(True)
 
-    # Add a title to the figure
+    # Add title
     script_name = os.path.basename(__file__)
     fig.suptitle(
-        f"{script_name}\nCIFAR-10 Dataset\nEpochs: {EPOCHS}",  # Updated title
+        f"{script_name}\nCIFAR-10 Dataset\nEpochs: {EPOCHS}",
         fontsize=16,
     )
 
-    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to make space for suptitle
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(TS_METRICS_PATH)
     plt.savefig(LATEST_METRICS_PATH)
     plt.close(fig)
 
-    # runtime
+    # Runtime
     total_seconds = int(time.time() - start_time)
     minutes, seconds = divmod(total_seconds, 60)
     print(f"\nTotal runtime: {minutes}m {seconds}s")
 
-    # 7. Demo - Skip demo for now since model architecture doesn't match CIFAR yet
-    print("\n--- Demo Inference ---")
-    print("Demo skipped - model architecture needs to be adapted for CIFAR-10 images")
-    # if SEQ_LEN == 5:
-    #     demo_samples = [
-    #         [0, 2, 6, 3, 3],  # Expected target: (0+2+6+3+3) = 14
-    #         [7, 8, 4, 2, 9],  # Expected target: (7+8+4+2+9) = 30
-    #         [1, 7, 5, 4, 1],  # Expected target: (1+7+5+4+1) = 18
-    #     ]
-    #     for sample_features in demo_samples:
-    #         try:
-    #             prediction = infer(model, sample_features, SEQ_LEN)
-    #             print(f"Input: {sample_features} -> Predicted class: {prediction}")
-    #         except ValueError as e:
-    #             print(f"Error during demo prediction for {sample_features}: {e}")
-    # else:
-    #     print(
-    #         f"Demo samples are for seq_len=5. Current seq_len is {SEQ_LEN}. Skipping demo."
-    #     )
+    print("\nDataset ready for vision-based architecture!")
